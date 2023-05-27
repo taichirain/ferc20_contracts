@@ -13,6 +13,10 @@ pragma solidity ^0.8.0;
 // 用户在铸造时，需要手动输入小费（tip），该小费必须大于等于额外的费用。前端可以通过 getMintFee 方法获得需额外支付的最低ETH费用。
 // 5- 为防女巫攻击，部署者还可以设定参与铸造账户拥有的资产条件，如改账户是否拥有某个NFT或ERC20代币，并配置最少数量。
 // 6- 为防女巫攻击，设定了 maxMintSize，即每次铸造的最多张数。该数量由部署人在部署铭文代币时设定，一旦设定，不能修改。
+// 7- 批量铸造（batchMint）一次性最多铸造10个，但只能适用于无冷冻期的token。
+// 8- 支持众筹
+// 9- 生成的ERC20没有owner权限
+// 10- 生成的ERC20totalSupply为0，随着实际mint的数量增加而增加
 
 import "./Inscription.sol";
 import "./String.sol";
@@ -45,6 +49,13 @@ contract InscriptionFactory is Ownable{
         string name;            // full name of token
         uint256 cap;            // Hard cap of token
         uint256 limitPerMint;   // Limitation per mint
+        uint256 maxMintSize;    // // max mint size, that means the max mint quantity is: maxMintSize * limitPerMint
+        uint256 inscriptionId;  // Inscription id
+        uint256 freezeTime;
+        address onlyContractAddress;
+        uint256 onlyMinQuantity;
+        uint256 crowdFundingRate;
+        address crowdfundingAddress;
         address addr;           // Contract address of inscribed token 
         uint256 timestamp;      // Inscribe timestamp
     }
@@ -65,7 +76,9 @@ contract InscriptionFactory is Ownable{
         uint256 _maxMintSize, // The max lots of each mint
         uint256 _freezeTime, // Freeze seconds between two mint, during this freezing period, the mint fee will be increased 
         address _onlyContractAddress, // Only the holder of this asset can mint, optional
-        uint256 _onlyMinQuantity // The min quantity of asset for mint, optional
+        uint256 _onlyMinQuantity, // The min quantity of asset for mint, optional
+        uint256 _crowdFundingRate,
+        address _crowdFundingAddress
     ) external returns (address _inscriptionAddress) {
         require(String.strlen(_tick) == maxTickSize, "Tick lenght should be 4");
         require(_cap >= _limitPerMint, "Limit per mint exceed cap");
@@ -87,16 +100,32 @@ contract InscriptionFactory is Ownable{
             _onlyContractAddress,
             _onlyMinQuantity,
             baseFee,
+            _crowdFundingRate,
+            _crowdFundingAddress,
             address(this)
         ));
 		bytes32 salt = keccak256(abi.encodePacked(_id));
-		assembly {
+		assembly ("memory-safe") {
 			_inscriptionAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
 			if iszero(extcodesize(_inscriptionAddress)) {
 				revert(0, 0)
 			}
 		}
-        inscriptions[_id] = Token(_tick, _name, _cap, _limitPerMint, _inscriptionAddress, block.timestamp);
+        inscriptions[_id] = Token(
+            _tick, 
+            _name, 
+            _cap, 
+            _limitPerMint, 
+            _maxMintSize,
+            _id,
+            _freezeTime,
+            _onlyContractAddress,
+            _onlyMinQuantity,
+            _crowdFundingRate,
+            _crowdFundingAddress,
+            _inscriptionAddress, 
+            block.timestamp
+        );
         ticks[_tick] = _id;
 
         _inscriptionNumbers.increment();
@@ -191,25 +220,11 @@ contract InscriptionFactory is Ownable{
     //             1000000000000000000000,
     //             10,
     //             180,
-    //             address(0x0),
-    //             0
+    //             address(0x0000000000000000000000000000000000000000),
+    //             0, 
+    //             5000000000000000,
+    //             address(0x615b80388E3D3CaC6AA3a904803acfE7939f0399),
     //         );
     //     }
-
-    //     (Token memory inscription1, ) = this.getIncriptionById(2);
-    //     address addr1 = inscription1.addr;
-    //     Inscription(addr1).batchMint(msg.sender, 10);
-
-    //     (Token memory inscription2, ) = this.getIncriptionById(4);
-    //     address addr2 = inscription2.addr;
-    //     Inscription(addr2).batchMint(msg.sender, 10);
-
-    //     (Token memory inscription3, ) = this.getIncriptionById(7);
-    //     address addr3 = inscription3.addr;
-    //     Inscription(addr3).batchMint(msg.sender, 5);
-
-    //     (Token memory inscription4, ) = this.getIncriptionById(8);
-    //     address addr4 = inscription4.addr;
-    //     Inscription(addr4).batchMint(msg.sender, 3);
     // }
 }
