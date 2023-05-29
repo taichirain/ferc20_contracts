@@ -67,14 +67,15 @@ contract Inscription is ERC20 {
             // The min extra tip is double of last mint fee
             lastMintFee[msg.sender] = lastMintFee[msg.sender] == 0 ? baseFee : lastMintFee[msg.sender] * 2;
             // Check if the tip is high than the min extra fee
-            require(msg.value >= lastMintFee[msg.sender], "Must send some ETH as fee");
-            // Check if the balance of eth is enought for clowdfunding
-            require(payable(msg.sender).balance >= crowdFundingRate, "Balance not enough for crowdfunding");
-            // Transfer the tip to InscriptionFactory smart contract
-            inscriptionFactory.transfer(msg.value);
+            require(msg.value >= crowdFundingRate + lastMintFee[msg.sender], "Send some ETH as fee and crowdfunding");
             // Transfer the fee to the crowdfunding address
-            crowdfundingAddress.transfer(crowdFundingRate);
+            if(crowdFundingRate > 0) crowdfundingAddress.transfer(crowdFundingRate);
+            // Transfer the tip to InscriptionFactory smart contract
+            if(msg.value - crowdFundingRate > 0) inscriptionFactory.transfer(msg.value - crowdFundingRate);
         } else {
+            require(msg.value >= crowdFundingRate, "Send some ETH as crowdfunding");
+            // Transfer the fee to the crowdfunding address
+            if(msg.value > 0) crowdfundingAddress.transfer(msg.value);
             // Out of frozen time, free mint. Reset the timestamp and mint times.
             lastMintFee[msg.sender] = 0;
             lastMintTimestamp[msg.sender] = block.timestamp;
@@ -84,18 +85,22 @@ contract Inscription is ERC20 {
     }
 
     // batch mint is only available for non-frozen-time tokens
-    function batchMint(address _to, uint256 _num) public {
+    function batchMint(address _to, uint256 _num) payable public {
         require(_num <= maxMintSize, "exceed max mint size");
         require(totalSupply() + _num * limitPerMint <= cap, "Touch cap");
-        for(uint256 i = 0; i < _num; i++) mint(_to);
+        require(freezeTime == 0, "Batch mint only for non-frozen token");
+        require(msg.value >= crowdFundingRate * _num, "Crowdfunding ETH not enough");
+        require(onlyContractAddress == address(0x0) || ICommonToken(onlyContractAddress).balanceOf(msg.sender) >= onlyMinQuantity, "You don't have required assets");
+        if(msg.value > 0) crowdfundingAddress.transfer(msg.value);
+        for(uint256 i = 0; i < _num; i++) _mint(_to, limitPerMint);
     }
 
-    function getMintFee() external view returns(uint256 mintedTimes, uint256 nextMintFee) {
-        if(lastMintTimestamp[msg.sender] + freezeTime > block.timestamp) {
-            int256  scale = 1e18;
+    function getMintFee(address _addr) public view returns(uint256 mintedTimes, uint256 nextMintFee) {
+        if(lastMintTimestamp[_addr] + freezeTime > block.timestamp) {
+            int256 scale = 1e18;
             int256 halfScale = 5e17;
             // times = log_2(lastMintFee / baseFee) + 1 (if lastMintFee > 0)
-            nextMintFee = lastMintFee[msg.sender] == 0 ? baseFee : lastMintFee[msg.sender] * 2;
+            nextMintFee = lastMintFee[_addr] == 0 ? baseFee : lastMintFee[_addr] * 2;
             mintedTimes = uint256((Logarithm.log2(int256(nextMintFee / baseFee) * scale, scale, halfScale) + 1) / scale) + 1;
         }
     }
