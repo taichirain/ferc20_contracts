@@ -1,25 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// 该合约用于部署铭文代币
-// 特点：
-// 1- 遵守BRC20标准，限定四个字母，且忽略大小写，一律转换为小写。
-// 2- 符合ERC20标准，有name属性。可以在所有以太坊的DEX中交易。
-// 3- 为防女巫攻击造成铸造过程不公平，规定了铸造冷冻期。
-// 不在冷冻期内，可以免费铸造；一旦免费铸造成功，冷冻期启动，在冷冻期内铸造，需要支付额外的费用（ETH），并且每次铸造费用是上一次的两倍。
-// 冷冻期可以在部署代币时，由部署人设定，一旦设定，不能修改。
-// 冷冻期内铸币产生的额外费用归本合约所有。
-// 基础费用（即免费后第一次额外费用）为0.00025ETH
-// 用户在铸造时，需要手动输入小费（tip），该小费必须大于等于额外的费用。前端可以通过 getMintFee 方法获得需额外支付的最低ETH费用。
-// 5- 为防女巫攻击，部署者还可以设定参与铸造账户拥有的资产条件，如改账户是否拥有某个NFT或ERC20代币，并配置最少数量。
-// 6- 为防女巫攻击，设定了 maxMintSize，即每次铸造的最多张数。该数量由部署人在部署铭文代币时设定，一旦设定，不能修改。
-// 7- 批量铸造（batchMint）一次性最多铸造10个，但只能适用于无冷冻期的token。
-// 8- 支持众筹
-// 9- 生成的ERC20没有owner权限
-// 10- 生成的ERC20totalSupply为0，随着实际mint的数量增加而增加
-
 import "./Inscription.sol";
 import "./String.sol";
+import "./TransferHelper.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -30,6 +14,7 @@ contract InscriptionFactory is Ownable{
 
     uint8 public maxTickSize = 4;                   // tick(symbol) length is 4.
     uint256 public baseFee = 250000000000000;       // Will charge 0.00025 ETH as extra min tip from the second time of mint in the frozen period. And this tip will be double for each mint.
+    uint256 public fundingCommission = 100;       // commission rate of fund raising, 100 means 1%
 
     mapping(uint256 => Token) private inscriptions; // key is inscription id, value is token data
     mapping(string => uint256) private ticks;       // Key is tick, value is inscription id
@@ -100,6 +85,7 @@ contract InscriptionFactory is Ownable{
             _onlyContractAddress,
             _onlyMinQuantity,
             baseFee,
+            fundingCommission,
             _crowdFundingRate,
             _crowdFundingAddress,
             address(this)
@@ -196,7 +182,7 @@ contract InscriptionFactory is Ownable{
     // Withdraw the ETH tip from the contract
     function withdraw(address payable _to, uint256 _amount) external onlyOwner {
         require(_amount <= payable(address(this)).balance);
-        _to.transfer(_amount);
+        TransferHelper.safeTransferETH(_to, _amount);
     }
 
     // Update base fee
@@ -204,27 +190,13 @@ contract InscriptionFactory is Ownable{
         baseFee = _fee;
     }
 
+    // Update funding commission
+    function updateFundingCommission(uint256 _rate) external onlyOwner {
+        fundingCommission = _rate;
+    }
+
     // Update character's length of tick
     function updateTickSize(uint8 _size) external onlyOwner {
         maxTickSize = _size;
     }
-
-    // function test() external {
-    //     for(uint256 i = 0; i < 1; i++) {
-    // 		string memory _name = string(abi.encodePacked("Test coin #", (i + 1).toString()));
-	//     	string memory _symbol = string(abi.encodePacked("tt#", (i + 1).toString()));
-    //         this.deploy(
-    //             _name,
-    //             _symbol,
-    //             10000000000000000000000,
-    //             1000000000000000000000,
-    //             10,
-    //             180,
-    //             address(0x0000000000000000000000000000000000000000),
-    //             0, 
-    //             5000000000000000,
-    //             address(0x615b80388E3D3CaC6AA3a904803acfE7939f0399),
-    //         );
-    //     }
-    // }
 }
