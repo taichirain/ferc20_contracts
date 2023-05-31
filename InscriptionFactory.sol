@@ -136,6 +136,19 @@ contract InscriptionFactory is Ownable{
         return (inscriptions[this.getIncriptionIdByTick(_tick)], Inscription(token.addr).totalSupply());
     }
 
+    function getInscriptionAmountByType(uint256 _type) external view returns(uint256) {
+        require(_type < 3, "type is 0-2");
+        uint256 totalInscription = this.getInscriptionAmount();
+        uint256 count = 0;
+        for(uint256 i = 1; i <= totalInscription; i++) {
+            (Token memory _token, uint256 _totalSupply) = this.getIncriptionById(i);
+            if(_type == 1 && _totalSupply == _token.cap) continue;
+            else if(_type == 2 && _totalSupply < _token.cap) continue;
+            else count++;
+        }
+        return count;
+    }
+    
     // Fetch inscription data by page no, page size, type and search keyword
     function getIncriptions(
         uint256 _pageNo, 
@@ -147,6 +160,7 @@ contract InscriptionFactory is Ownable{
         uint256[] memory totalSupplies_
     ) {
         // if _searchBy is not empty, the _pageNo and _pageSize should be set to 1
+        require(_type < 3, "type is 0-2");
         uint256 totalInscription = this.getInscriptionAmount();
         uint256 pages = (totalInscription - 1) / _pageSize + 1;
         require(_pageNo > 0 && _pageSize > 0 && pages > 0 && _pageNo <= pages, "Params wrong");
