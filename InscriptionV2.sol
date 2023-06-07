@@ -65,6 +65,7 @@ contract Inscription is ERC20 {
         require(totalSupply() + limitPerMint <= cap, "Touched cap");
         // Check if the assets in the msg.sender is satisfied
         require(onlyContractAddress == address(0x0) || ICommonToken(onlyContractAddress).balanceOf(msg.sender) >= onlyMinQuantity, "You don't have required assets");
+        require(lastMintTimestamp[msg.sender] < block.timestamp, "Timestamp fail");
         
         if(lastMintTimestamp[msg.sender] + freezeTime > block.timestamp) {
             // The min extra tip is double of last mint fee
@@ -77,6 +78,8 @@ contract Inscription is ERC20 {
             }
             // Transfer the tip to InscriptionFactory smart contract
             if(msg.value - crowdFundingRate > 0) TransferHelper.safeTransferETH(inscriptionFactory, msg.value - crowdFundingRate);
+            // Do mint
+            _mint(_to, limitPerMint);
         } else {
             // Transfer the fee to the crowdfunding address
             if(crowdFundingRate > 0) {
@@ -86,9 +89,9 @@ contract Inscription is ERC20 {
             // Out of frozen time, free mint. Reset the timestamp and mint times.
             lastMintFee[msg.sender] = 0;
             lastMintTimestamp[msg.sender] = block.timestamp;
+            // Do mint
+            _mint(_to, limitPerMint);
         }
-        // Do mint
-        _mint(_to, limitPerMint);
     }
 
     // batch mint is only available for non-frozen-time tokens

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Inscription.sol";
+import "./InscriptionV2.sol";
 import "./String.sol";
 import "./TransferHelper.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -17,6 +17,7 @@ contract InscriptionFactory is Ownable{
 
     mapping(uint256 => Token) private inscriptions; // key is inscription id, value is token data
     mapping(string => uint256) private ticks;       // Key is tick, value is inscription id
+    mapping(string => bool) public stockTicks;     // check if tick is occupied
 
     event DeployInscription(
         uint256 indexed id, 
@@ -44,6 +45,144 @@ contract InscriptionFactory is Ownable{
         uint256 timestamp;      // Inscribe timestamp
     }
 
+    string[] public v1StockTicks = [
+        "ferc",
+        "fdao",
+        "cash",
+        "fair",
+        "web3",
+        unicode"卧槽牛逼",
+        "ordi",
+        "feth",
+        "shib",
+        "mama",
+        "doge",
+        "punk",
+        "fomo",
+        "rich",
+        "pepe",
+        "elon",
+        "must",
+        "bayc",
+        "sinu",
+        "zuki",
+        "migo",
+        "fbtc",
+        "erc2",
+        "fare",
+        "okbb",
+        "lady",
+        "meme",
+        "oxbt",
+        "dego",
+        "frog",
+        "moon",
+        "weth",
+        "jeet",
+        "fuck",
+        "piza",
+        "oerc",
+        "baby",
+        "mint",
+        "8==d",
+        "pipi",
+        "fxen",
+        "king",
+        "anti",
+        "papa",
+        "fish",
+        "jack",
+        "defi",
+        "l1l2",
+        "niub",
+        "weid",
+        "perc",
+        "baba",
+        "$eth",
+        "fbnb",
+        "shan",
+        "musk",
+        "drac",
+        "kids",
+        "tate",
+        "fevm",
+        "0x0x",
+        "topg",
+        "aaaa",
+        "8686",
+        unicode"梭进去操",
+        "hold",
+        "fben",
+        "hash",
+        "dddd",
+        "fnft",
+        "fdog",
+        "abcd",
+        "free",
+        "$cpt",
+        "gwei",
+        "love",
+        "cola",
+        "0000",
+        "flat",
+        "core",
+        "heyi",
+        "ccup",
+        "fsbf",
+        "fers",
+        "6666",
+        "xxlb",
+        "nfts",
+        "nbat",
+        "nfty",
+        "jcjy",
+        "nerc",
+        "aiai",
+        "czhy",
+        "ftrx",
+        "code",
+        "mars",
+        "pemn",
+        "carl",
+        "fire",
+        "hodl",
+        "flur",
+        "exen",
+        "bcie",
+        "fool",
+        unicode"中国牛逼",
+        "jump",
+        "shit",
+        "benf",
+        "sats",
+        "intm",
+        "dayu",
+        "whee",
+        "pump",
+        "sexy",
+        "dede",
+        "ebtc",
+        "bank",
+        "flok",
+        "meta",
+        "flap",
+        "$cta",
+        "maxi",
+        "coin",
+        "ethm",
+        "body",
+        "frfd",
+        "erc1",
+        "ququ",
+        "nine",
+        "luck",
+        "jomo",
+        "giga",
+        "weeb",
+        "0001",
+        "fev2"
+    ];
+
     constructor() {
         // The inscription id will be from 1, not zero.
         _inscriptionNumbers.increment();
@@ -69,6 +208,7 @@ contract InscriptionFactory is Ownable{
 
         _tick = String.toLower(_tick);
         require(this.getIncriptionIdByTick(_tick) == 0, "tick is existed");
+        require(!stockTicks[_tick], "tick is in stock");
 
         // Create inscription contract
         bytes memory bytecode = type(Inscription).creationCode;
@@ -214,5 +354,17 @@ contract InscriptionFactory is Ownable{
     // Update character's length of tick
     function updateTickSize(uint8 _size) external onlyOwner {
         maxTickSize = _size;
+    }
+
+    // update stock tick
+    function updateStockTick(string memory _tick, bool _status) public onlyOwner {
+        stockTicks[_tick] = _status;
+    }
+
+    // Upgrade from v1 to v2
+    function batchUpdateStockTick(bool status) public onlyOwner {
+        for(uint256 i = 0; i < v1StockTicks.length; i++) {
+            updateStockTick(v1StockTicks[i], status);
+        }
     }
 }
