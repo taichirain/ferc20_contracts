@@ -8,4 +8,10 @@ typechain-types
 # Hardhat files
 cache
 artifacts
+package-lock.json
 
+# foundry
+forge-cache
+out
+broadcast
+lib/openzeppelin-contracts
